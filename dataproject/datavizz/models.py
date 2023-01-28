@@ -1,9 +1,17 @@
 from django.db import models
+from django.core.validators import FileExtensionValidator
+import datetime
+
 # Create your models here.
 
 
-class Data(models.Model):
-    name = models.CharField(max_length=100)
-    value = models.FloatField()
-    date = models.DateField()
-    category = models.CharField(max_length=100)
+class DataFile(models.Model):
+    file = models.FileField(
+        upload_to='uploads/', validators=[FileExtensionValidator(['csv', 'xls', 'xlsx'])])
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Check if the file is older than one hour
+        if datetime.datetime.now() - self.timestamp > datetime.timedelta(hours=1):
+            self.file.delete()
