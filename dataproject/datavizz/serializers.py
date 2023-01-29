@@ -7,5 +7,4 @@ class DataFileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DataFile
-        fields = ['id', 'file', 'timestamp']
-
+        fields = ['id', 'file',]
