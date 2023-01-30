@@ -5,14 +5,13 @@ from django.contrib.auth.models import User
 
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(max_length=255, min_length=3)
-    first_name = serializers.CharField(max_length=255, min_length=8)
-    last_name = serializers.CharField(max_length=255, min_length=8)
+    full_name = serializers.CharField(max_length=255, min_length=8)
     password = serializers.CharField(
         max_length=100, min_length=8, write_only=True)
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'first_name', 'last_name', 'email']
+        fields = ['username', 'password', 'full_name', 'email']
 
     def validate(self, attrs):
         email = attrs.get('email', '')

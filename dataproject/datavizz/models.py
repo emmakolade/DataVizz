@@ -1,7 +1,8 @@
 from django.db import models
 from django.core.validators import FileExtensionValidator
-import datetime
+from datetime import datetime, timedelta
 from django.contrib.auth.models import User
+from django.utils import timezone
 # Create your models here.
 
 
@@ -14,5 +15,7 @@ class DataFile(models.Model):
     # def save(self, *args, **kwargs):
     #     super().save(*args, **kwargs)
     #     # Check if the file is older than one hour
-    #     if datetime.datetime.utcnow() - self.timestamp > datetime.timedelta(hours=1):
+    #     one_hour_ago = timezone.now() - timedelta(hours=1)
+    #     time_stamp=timezone.make_aware(self.timestamp)
+    #     if self.pk and self.timestamp < one_hour_ago:
     #         self.file.delete()
