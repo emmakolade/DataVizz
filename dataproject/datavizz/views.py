@@ -64,10 +64,47 @@ class FileRetrieveView(generics.RetrieveAPIView):
         elif file.endswith('.xls') or file.endswith('.xlsx'):
             df = pd.read_excel(file)
 
-        # perform additional cleaning and procesing on the Dataframe
-        df = df.dropna()  # remove rows with missing values
+        # handle missing values differently based on the type of data in each column
+        for column in df.columns:
+            if df[column].dtype == 'float64':
+                df[column].fillna(df[column].mean(), inplace=True)
+            elif df[column].dtype == 'int64':
+                df[column].fillna(df[column].median(), inplace=True)
+            else:
+                df[column].fillna('Unknown', inplace=True)
+
+        # remove or replace outliers in the data
+        for column in df.columns:
+            if df[column].dtype == 'float64' or df[column].dtype == 'int64':
+                q1 = df[column].quantile(0.25)
+                q3 = df[column].quantile(0.75)
+                iqr = q3 - q1
+                lower_bound = q1 - (1.5 * iqr)
+                upper_bound = q3 + (1.5 * iqr)
+                df = df[(df[column] >= lower_bound) &
+                        (df[column] <= upper_bound)]
+
+        # handle data that is in the wrong format
+        for column in df.columns:
+            if df[column].dtype == 'object':
+                try:
+                    df[column] = pd.to_datetime(df[column])
+                except ValueError:
+                    pass
+
+        # handle data that is in the wrong range
+        for column in df.columns:
+            if df[column].dtype == 'int64':
+                df = df[(df[column] >= 0) & (df[column] <= 120)]
+
+        # handle data that is not consistent
+        for column in df.columns:
+            if df[column].dtype == 'object':
+                df[column] = df[column].str.lower().str.strip()
+                df[column] = df[column].astype('category')
+
         df = df.drop_duplicates()  # removes duplicate rows
-        df = df.dropna(subset=df.columns, how='all')
+        df = df.dropna(axis='columns', how='all')
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -75,6 +112,7 @@ class FileRetrieveView(generics.RetrieveAPIView):
         return self.queryset.filter(user=self.request.user)
 
 
+# function to handle file download and display
 def display_and_download(file):
     if file.endswith('.csv'):
         data = pd.read_csv(file)
@@ -130,9 +168,12 @@ class FileDownloadView(generics.RetrieveAPIView):
         if plot is None:
             return Response("No suitable x and y values found in DataFrame")
         plot.savefig('data.pdf')
-        with open('data.pdf', 'rb') as pdf:
-            response = HttpResponse(pdf.read(), content_type='application/pdf')
-            response['Content-Disposition'] = 'inline;filename=data.pdf'
+        response = FileResponse(open('data.pdf', 'rb'),
+                                content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename=data.pdf'
+        # with open('data.pdf', 'rb') as pdf:
+        #     response = HttpResponse(pdf.read(), content_type='application/pdf')
+        #     response['Content-Disposition'] = 'inline;filename=data.pdf'
         return Response("data downloaded as pdf")
 
     def get_queryset(self):
@@ -140,63 +181,11 @@ class FileDownloadView(generics.RetrieveAPIView):
 
 
 '''
-class FileDisplayView(generics.RetrieveAPIView):
-    queryset = DataFile.objects.all()
-    serializer_class = DataFileSerializer
-    permission_classes = [IsAuthenticated,]
-    lookup_field = 'id'
-
-    def retrieve(self, request, *args, **kwargs):
+def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         file = instance.file.path
-        if file.endswith('.csv'):
-            data = pd.read_csv(file)
-        elif file.endswith('.xls') or file.endswith('.xlsx'):
-            data = pd.read_excel(file)
-        x = None
-        y = None
-        for column in data.columns:
-            if x is None:
-                x = data[column]
-            elif y is None:
-                y = data[column]
-            else:
-                break
-        if x is None or y is None:
-            return Response("No suitable x and y values found in DataFrame")
-        plt.plot(x, y)
-        plt.show()
-        return Response("data displayed")
-
-    def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)
-    
-'''
-
-
-'''          
-class FileViewSet(viewsets.ModelViewSet):
-    queryset = DataFile.objects.all()
-    serializer_class = DataFileSerializer
-    parser_classes = (MultiPartParser, FileUploadParser, FormParser)
-    permission_classes = [IsAuthenticated,]
-    lookup_field = 'id'
-
-    def perform_create(self, serializer):
-        file = self.request.data['file']
-        if file.size > 10485760:  # 10MB
-            raise serializers.ValidationError('file must be less than 10mb')
-        serializer.save(user=self.request.user)
-
-    def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)
-
-    # @action(detail=True, methods=['get'])
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        file = instance.file
         # check if file is csv or excel file
-        valid_extension = ['.csv', '.xls', 'xlsx']
+        valid_extension = ['.csv', '.xls', '.xlsx']
         if not any(file.endswith(ext) for ext in valid_extension):
             raise ValueError(
                 f'file must have one of the following extensions: {", ".join(valid_extension)}')
@@ -209,30 +198,7 @@ class FileViewSet(viewsets.ModelViewSet):
         # perform additional cleaning and procesing on the Dataframe
         df = df.dropna()  # remove rows with missing values
         df = df.drop_duplicates()  # removes duplicate rows
-        df = df.dropna(subset=df.columns, how='all')
+        df = df.dropna(axis='columns', how='all')
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
-
-    # @action(detail=True, methods=['get'])
-    def display(self, request, *args, **kwargs):
-        instance = self.get_object()
-        file = instance.file.path
-        if file.endswith('.csv'):
-            data = pd.read_csv(file)
-        elif file.endswith('.xls') or file.endswith('.xlsx'):
-            data = pd.read_excel(file)
-        x = None
-        y = None
-        for column in data.columns:
-            if x is None:
-                x = data[column]
-            elif y is None:
-                y = data[column]
-            else:
-                break
-        if x is None or y is None:
-            return Response("No suitable x and y values found in DataFrame")
-        plt.plot(x, y)
-        plt.show()
-        return Response("data displayed")
-    '''
+'''
