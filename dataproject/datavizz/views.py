@@ -1,6 +1,5 @@
 from django.shortcuts import render
 import xlrd
-# Create your views here.
 from rest_framework import status, generics, serializers
 from .models import DataFile
 from rest_framework import viewsets
