@@ -1,29 +1,14 @@
-from django.shortcuts import render
-import xlrd
-# Create your views here.
-from rest_framework import status, generics, serializers
+from rest_framework import generics, serializers
 from .models import DataFile
-from rest_framework import viewsets
 from .serializers import DataFileSerializer
-from rest_framework.authentication import TokenAuthentication
-from rest_framework.exceptions import ValidationError
-from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.contrib.auth.models import AnonymousUser
-from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
-
 from django.http import FileResponse, HttpResponse
-from django.utils import timezone
-from django.core.exceptions import ObjectDoesNotExist
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
-from datetime import timedelta
 import matplotlib.pyplot as plt
-import pandas as pd
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FileUploadParser, MultiPartParser, FormParser
-from rest_framework.renderers import JSONRenderer
+import pandas as pd
+import xlrd
+from collections import Counter
 
 # Create your views here.
 
@@ -113,7 +98,7 @@ class FileRetrieveView(generics.RetrieveAPIView):
 
 
 # function to handle file download and display
-def display_and_download(file):
+def display_and_download(file, chart_type='scatter'):
     if file.endswith('.csv'):
         data = pd.read_csv(file)
     elif file.endswith('.xls') or file.endswith('.xlsx'):
@@ -132,7 +117,17 @@ def display_and_download(file):
 
     if x is None or y is None:
         return None
-    plt.plot(x, y)
+
+    fig, ax = plt.subplots()
+    if chart_type == 'line':
+        ax.plot(x, y)
+    elif chart_type == 'bar':
+        ax.bar(x, y)
+    elif chart_type == 'scatter':
+        ax.scatter(x, y)
+    else:
+        return None
+
     return plt
 
 
