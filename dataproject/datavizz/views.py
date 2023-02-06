@@ -61,17 +61,6 @@ class FileRetrieveView(generics.RetrieveAPIView):
             else:
                 df[column].fillna('Unknown', inplace=True)
 
-        # remove or replace outliers in the data
-        for column in df.columns:
-            if df[column].dtype == 'float64' or df[column].dtype == 'int64':
-                q1 = df[column].quantile(0.25)
-                q3 = df[column].quantile(0.75)
-                iqr = q3 - q1
-                lower_bound = q1 - (1.5 * iqr)
-                upper_bound = q3 + (1.5 * iqr)
-                df = df[(df[column] >= lower_bound) &
-                        (df[column] <= upper_bound)]
-
         # handle data that is in the wrong format
         for column in df.columns:
             if df[column].dtype == 'object':
@@ -177,26 +166,3 @@ class FileDownloadView(generics.RetrieveAPIView):
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
 
-
-'''
-def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        file = instance.file.path
-        # check if file is csv or excel file
-        valid_extension = ['.csv', '.xls', '.xlsx']
-        if not any(file.endswith(ext) for ext in valid_extension):
-            raise ValueError(
-                f'file must have one of the following extensions: {", ".join(valid_extension)}')
-        # use pandas to clean
-        if file.endswith('.csv'):
-            df = pd.read_csv(file)
-        elif file.endswith('.xls') or file.endswith('.xlsx'):
-            df = pd.read_excel(file)
-
-        # perform additional cleaning and procesing on the Dataframe
-        df = df.dropna()  # remove rows with missing values
-        df = df.drop_duplicates()  # removes duplicate rows
-        df = df.dropna(axis='columns', how='all')
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-'''
